@@ -86,3 +86,15 @@ TWITTER_ACCESS_SECRET = getattr(settings, 'TWITTER_ACCESS_SECRET', '')
 USE_TWITTER = getattr(settings, 'ZINNIA_USE_TWITTER',
                       bool(TWITTER_ACCESS_KEY and TWITTER_ACCESS_SECRET and \
                            TWITTER_CONSUMER_KEY and TWITTER_CONSUMER_SECRET))
+
+
+OAUTH_ACCESS_SETTINGS = getattr(settings, 'OAUTH_ACCESS_SETTINGS', '')
+
+FACEBOOK_PAGE_ID = getattr(settings, 'FACEBOOK_PAGE_ID', '')
+FACEBOOK_API_KEY = getattr(settings, 'FACEBOOK_API_KEY', '')
+FACEBOOK_SECRET_KEY = getattr(settings, 'FACEBOOK_SECRET_KEY', '')
+
+USE_FACEBOOK = getattr(settings, 'ZINNIA_USE_FACEBOOK',
+                       bool(OAUTH_ACCESS_SETTINGS and FACEBOOK_API_KEY and \
+                                FACEBOOK_SECRET_KEY and FACEBOOK_PAGE_ID))
+                      

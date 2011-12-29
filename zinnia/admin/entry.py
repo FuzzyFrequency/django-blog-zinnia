@@ -54,7 +54,7 @@ class EntryAdmin(admin.ModelAdmin):
     search_fields = ('title', 'excerpt', 'content', 'tags')
     actions = ['make_mine', 'make_published', 'make_hidden',
                'close_comments', 'close_pingbacks',
-               'ping_directories', 'make_tweet', 'put_on_top']
+               'ping_directories', 'make_tweet', 'make_post_on_facebook', 'put_on_top']
     actions_on_top = True
     actions_on_bottom = True
 
@@ -199,6 +199,9 @@ class EntryAdmin(admin.ModelAdmin):
         if not settings.USE_TWITTER:
             del actions['make_tweet']
 
+        if not settings.USE_FACEBOOK:
+            del actions['make_post_on_facebook']
+
         return actions
 
     # Custom Actions
@@ -241,6 +244,77 @@ class EntryAdmin(admin.ModelAdmin):
         self.message_user(
             request, _('The selected entries have been tweeted.'))
     make_tweet.short_description = _('Tweet entries selected')
+
+
+    def make_post_on_facebook(self, request, queryset):
+        """Post a message on a wall"""
+        from django.shortcuts import redirect
+        from oauth_access.models import UserAssociation
+        from django.conf import settings
+        from django.contrib.sites.models import Site
+        import facebook
+
+        current_site = Site.objects.get(id=settings.SITE_ID)
+
+        # Set the posts we want to publish
+        # This is required for facebook since there's no way to pass args with the callback
+        request.COOKIES['zinnia_entries_to_post'] = queryset.all().values_list('id', flat=True)
+
+        need_auth = False
+        assoc = None
+        try:
+            assoc = UserAssociation.objects.get(service='facebook')            
+        except UserAssociation.DoesNotExist:
+            need_auth = True
+
+        # XXX: We have to reverse this conditions since there's a bug
+        # in 'oauth_access'
+        if assoc and (not assoc.expired()):
+            assoc.delete()
+            need_auth = True
+
+        if need_auth:
+            association_url = reverse('oauth_access_login', args=['facebook'])
+            return redirect(association_url)
+        else:
+            model = queryset.model
+            entries = model.objects.filter(id__in=request.COOKIES['zinnia_entries_to_post'])
+            
+            graph = facebook.GraphAPI(assoc.token)
+            page_token = graph.get_object(settings.FACEBOOK_PAGE_ID, fields='access_token')['access_token']
+            page_graph = facebook.GraphAPI(page_token)
+
+            
+            for entry in entries:
+                kwargs = {'link': "http://" + current_site.domain + entry.get_absolute_url(),
+                          'name': entry.title.encode('utf-8'),
+                          'caption': "%s - http://%s" % (current_site.name, current_site.domain),
+                          }
+
+                if entry.excerpt:
+                    kwargs['message'] = entry.excerpt.encode('utf-8')
+
+                if entry.tags:
+                    kwargs['description'] = entry.tags.encode('utf-8')
+                    
+                if entry.image:
+                    kwargs['picture'] = "http://%s/%s" % (current_site.domain,
+                                                          entry.image.url)
+                    
+                page_graph.put_object('me',
+                                      'feed',
+                                      **kwargs
+                                      )
+            
+            self.message_user(
+                request, _('Your messages have been posted on Facebook')
+                )
+
+
+        
+
+    make_post_on_facebook.short_description = _('Post entries selected on Facebook')
+        
 
     def close_comments(self, request, queryset):
         """Close the comments for selected entries"""
