@@ -286,13 +286,16 @@ class EntryAdmin(admin.ModelAdmin):
 
             
             for entry in entries:
+		import HTMLParser
+		h = HTMLParser.HTMLParser()
+
                 kwargs = {'link': "http://" + current_site.domain + entry.get_absolute_url(),
                           'name': entry.title.encode('utf-8'),
                           'caption': "%s - http://%s" % (current_site.name, current_site.domain),
                           }
 
                 if entry.excerpt:
-                    kwargs['message'] = entry.excerpt.encode('utf-8')
+                    kwargs['message'] = h.unescape(entry.excerpt.encode('utf-8')).encode('utf-8')
 
                 if entry.tags:
                     kwargs['description'] = entry.tags.encode('utf-8')
